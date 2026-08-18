@@ -1,3 +1,5 @@
+'use client';
+
 /* =============================================================================
    Sydney to New York — an editable, nestable checklist.
 
@@ -36,12 +38,13 @@
    "parent says done, child says not" bugs.
 ============================================================================= */
 
-const { createStore } = zustandVanilla;
-const { persist, createJSONStorage } = zustandMiddleware;
-const {
+import React, {
   useSyncExternalStore, useRef, useEffect, useLayoutEffect,
   useState, useCallback, useMemo, memo, Fragment
-} = React;
+} from 'react';
+import { createStore } from 'zustand/vanilla';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import htm from 'htm';
 const html = htm.bind(React.createElement);
 
 const KEY = 'sydney-nyc-checklist';
@@ -1278,4 +1281,4 @@ function App() {
     <//>`;
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(html`<${App} />`);
+export default App;
