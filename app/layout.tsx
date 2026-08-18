@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from 'next';
 import '../src/theme.css';
 import Pwa from './pwa';
 
-// Link previews need absolute URLs. Set NEXT_PUBLIC_SITE_URL to the deployed
-// origin before building, or shared links will point at localhost.
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+// Link previews need absolute URLs baked in at build time. Override with
+// NEXT_PUBLIC_SITE_URL for preview deployments on another origin.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://todo.lbxa.net';
 
 const TITLE = 'Checklist';
 const DESCRIPTION = 'Nestable lists that live in your browser.';

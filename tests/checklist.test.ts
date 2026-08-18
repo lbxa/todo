@@ -380,6 +380,7 @@ describe('pwa', () => {
         themeColor: get('meta[name=theme-color]'),
         ogTitle: get('meta[property="og:title"]'),
         ogImage: get('meta[property="og:image"]'),
+        ogUrl: get('meta[property="og:url"]'),
         ogWidth: get('meta[property="og:image:width"]'),
         twitterCard: get('meta[name="twitter:card"]'),
         title: document.title,
@@ -391,7 +392,10 @@ describe('pwa', () => {
     expect(meta.appleTitle).toBe('Checklist');
     expect(meta.title).toBe('Checklist');
     expect(meta.ogTitle).toBe('Checklist');
+    // Absolute and on the production origin, or link previews render blank.
+    expect(meta.ogImage).toStartWith('https://todo.lbxa.net/');
     expect(meta.ogImage).toContain('opengraph-image');
+    expect(meta.ogUrl).toStartWith('https://todo.lbxa.net');
     expect(meta.ogWidth).toBe('1200');
     expect(meta.twitterCard).toBe('summary_large_image');
   });
@@ -400,8 +404,8 @@ describe('pwa', () => {
     const src = await p.evaluate(
       () => document.querySelector('meta[property="og:image"]')?.getAttribute('content') ?? '',
     );
-    // Built with a localhost metadataBase unless NEXT_PUBLIC_SITE_URL is set,
-    // so compare paths rather than origins.
+    // og:image is absolute against the production origin; fetch it from the
+    // local server under test by comparing paths rather than origins.
     const path = new global.URL(src).pathname + new global.URL(src).search;
     const size = await p.evaluate(
       (u) =>

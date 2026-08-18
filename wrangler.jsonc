@@ -2,6 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "todo",
   "compatibility_date": "2026-08-18",
+  "routes": [{ "pattern": "todo.lbxa.net", "custom_domain": true }],
   // Static assets only: the app has no server-side code, so there is no Worker
   // script to run. Cloudflare serves ./out straight from the edge cache.
   "assets": {

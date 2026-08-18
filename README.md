@@ -18,16 +18,16 @@ bun run og           # regenerate app/opengraph-image.png
 
 First run only: `bunx playwright install chromium`.
 
-## Before you deploy
+## Deploying
 
-Set `NEXT_PUBLIC_SITE_URL` to the deployed origin (see `.env.example`). It is
-baked into the OpenGraph tags at build time, so without it every shared link
-advertises an image at `localhost:3000` and previews render blank. The build
-prints a warning when it is unset.
+`wrangler.jsonc` publishes `./out` as static assets with no Worker script,
+since the app has no server-side code, and binds the custom domain
+`todo.lbxa.net`. Run `bun run deploy` once `wrangler` is authenticated
+(`bunx wrangler login`).
 
-```bash
-echo 'NEXT_PUBLIC_SITE_URL=https://todo.<your-subdomain>.workers.dev' > .env.local
-```
+That origin is also baked into the OpenGraph tags at build time, so link
+previews resolve. Set `NEXT_PUBLIC_SITE_URL` only to override it for a preview
+deployment on another origin (see `.env.example`).
 
 ## Layout
 
@@ -80,9 +80,3 @@ just stops persisting.
 The service worker precaches the whole export, so the installed app opens and
 edits with no network at all. Navigations are stale-while-revalidate, so a
 deploy is picked up on the next load rather than requiring a hard refresh.
-
-## Deploying
-
-`wrangler.jsonc` publishes `./out` as static assets with no Worker script,
-since the app has no server-side code. Run `bun run deploy` once `wrangler` is
-authenticated (`bunx wrangler login`).
