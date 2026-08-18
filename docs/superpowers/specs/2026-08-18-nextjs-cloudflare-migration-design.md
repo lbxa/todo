@@ -80,6 +80,11 @@ Accepted tradeoff: Playwright's own runner offers trace viewer, auto-retries and
 parallel workers, which `bun test` does not. Worth it for a conventional project
 shape at this suite size.
 
+The suite runs against the production artefact, not the dev server: `beforeAll`
+builds if needed, serves `./out` on an ephemeral port, and passes that origin to
+Playwright; `afterAll` tears it down. Testing the built output is what makes
+criterion 3 (no hydration errors in a real static export) observable.
+
 Because the suite asserts on `data-t` hooks rather than styling, a green run is
 the evidence that the ESM port changed no behaviour.
 
@@ -137,6 +142,11 @@ Bun is package manager and script runner: `bun install`, `bun run dev`,
 - `src/styles.css` — unreferenced, and its tokens (`--bg`, `--text`) belong to an
   earlier design pass that does not match the app's (`--color-canvas`, `--color-ink`)
 - `test.mjs` — replaced by `tests/checklist.test.ts`
+
+## Out of scope
+
+CI configuration, and any server-side capability (accounts, cross-device sync).
+Both are additive later; neither changes the decisions above.
 
 ## Risk
 
