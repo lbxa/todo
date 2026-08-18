@@ -1,15 +1,17 @@
 {
-  "name": "todo",
+  "name": "checklist",
   "version": "1.0.0",
   "private": true,
-  "description": "An editable, nestable checklist.",
+  "description": "Nestable lists that live in your browser.",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && bun scripts/generate-sw.mjs",
     "start": "npx serve out",
-    "test": "next build && bun test",
-    "deploy": "next build && wrangler deploy",
-    "preview": "next build && wrangler dev"
+    "test": "bun run build && bun test",
+    "preview": "bun run build && wrangler dev",
+    "deploy": "bun run build && wrangler deploy",
+    "icons": "bun scripts/generate-icons.mjs",
+    "og": "bun scripts/generate-og.mjs"
   },
   "dependencies": {
     "htm": "^3.1.1",

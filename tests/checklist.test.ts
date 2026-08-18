@@ -320,3 +320,178 @@ describe('context menu', () => {
     expect(errs).toEqual([]);
   });
 });
+
+describe('pwa', () => {
+  let ctx: BrowserContext, p: Page, errs: string[];
+
+  beforeAll(async () => {
+    ({ ctx, p, errs } = await openPage());
+  }, 30_000);
+
+  afterAll(async () => await ctx.close());
+
+  test('manifest is served and installable', async () => {
+    const res = await p.request.get(`${URL}/manifest.webmanifest`);
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toContain('manifest+json');
+
+    const m = await res.json();
+    expect(m.name).toBe('Checklist');
+    expect(m.short_name).toBe('Checklist');
+    expect(m.display).toBe('standalone');
+    expect(m.start_url).toBe('/');
+
+    // Installability needs both a 192 and a 512, plus a maskable variant so
+    // Android crops to its own shape instead of adding a white backdrop.
+    const sizes = m.icons.map((i: { sizes: string }) => i.sizes);
+    expect(sizes).toContain('192x192');
+    expect(sizes).toContain('512x512');
+    expect(m.icons.some((i: { purpose: string }) => i.purpose === 'maskable')).toBe(true);
+  });
+
+  test('every declared icon resolves at its stated size', async () => {
+    const m = await (await p.request.get(`${URL}/manifest.webmanifest`)).json();
+    const declared: Array<{ src: string; sizes: string }> = m.icons;
+
+    for (const { src, sizes } of [...declared, { src: '/icons/apple-touch-icon.png', sizes: '180x180' }]) {
+      const [w, h] = sizes.split('x').map(Number);
+      const actual = await p.evaluate(
+        (url) =>
+          new Promise<[number, number]>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve([img.naturalWidth, img.naturalHeight]);
+            img.onerror = () => reject(new Error(`failed to load ${url}`));
+            img.src = url;
+          }),
+        src,
+      );
+      expect(actual).toEqual([w, h]);
+    }
+  });
+
+  test('head carries the install and sharing tags', async () => {
+    const meta = await p.evaluate(() => {
+      const get = (sel: string, attr = 'content') =>
+        document.querySelector(sel)?.getAttribute(attr) ?? null;
+      return {
+        manifest: get('link[rel=manifest]', 'href'),
+        apple: get('link[rel=apple-touch-icon]', 'href'),
+        appleTitle: get('meta[name="apple-mobile-web-app-title"]'),
+        themeColor: get('meta[name=theme-color]'),
+        ogTitle: get('meta[property="og:title"]'),
+        ogImage: get('meta[property="og:image"]'),
+        ogWidth: get('meta[property="og:image:width"]'),
+        twitterCard: get('meta[name="twitter:card"]'),
+        title: document.title,
+      };
+    });
+
+    expect(meta.manifest).toBe('/manifest.webmanifest');
+    expect(meta.apple).toBe('/icons/apple-touch-icon.png');
+    expect(meta.appleTitle).toBe('Checklist');
+    expect(meta.title).toBe('Checklist');
+    expect(meta.ogTitle).toBe('Checklist');
+    expect(meta.ogImage).toContain('opengraph-image');
+    expect(meta.ogWidth).toBe('1200');
+    expect(meta.twitterCard).toBe('summary_large_image');
+  });
+
+  test('the share card is a real 1200x630 image', async () => {
+    const src = await p.evaluate(
+      () => document.querySelector('meta[property="og:image"]')?.getAttribute('content') ?? '',
+    );
+    // Built with a localhost metadataBase unless NEXT_PUBLIC_SITE_URL is set,
+    // so compare paths rather than origins.
+    const path = new global.URL(src).pathname + new global.URL(src).search;
+    const size = await p.evaluate(
+      (u) =>
+        new Promise<[number, number]>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve([img.naturalWidth, img.naturalHeight]);
+          img.onerror = () => reject(new Error('og image failed to load'));
+          img.src = u;
+        }),
+      path,
+    );
+    expect(size).toEqual([1200, 630]);
+  });
+
+  test('theme-color follows the selected theme', async () => {
+    const colour = () =>
+      p.evaluate(() => document.querySelector('meta[name=theme-color]')?.getAttribute('content'));
+    // Compare against the computed token, not a literal: production CSS is
+    // minified, so #000000 arrives as #000.
+    const canvas = () =>
+      p.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--color-canvas').trim(),
+      );
+
+    const before = await colour();
+    expect(before).toBe(await canvas());
+
+    await p.locator('[title=More]').first().click();
+    await p.waitForTimeout(200);
+    await p.locator('.swatch').nth(1).click(); // off-white
+    await p.waitForTimeout(250);
+
+    const after = await colour();
+    expect(after).toBe(await canvas());
+    expect(after).not.toBe(before);
+  });
+
+  test('service worker takes control, so the app works offline', async () => {
+    const controlled = await p.evaluate(async () => {
+      const reg = await navigator.serviceWorker.ready;
+      return { scope: reg.scope, controlled: navigator.serviceWorker.controller !== null };
+    });
+    expect(controlled.scope).toEndWith('/');
+    expect(controlled.controlled).toBe(true);
+  });
+
+  test('no console errors', () => {
+    expect(errs).toEqual([]);
+  });
+});
+
+describe('offline', () => {
+  let ctx: BrowserContext, p: Page;
+
+  beforeAll(async () => {
+    ({ ctx, p } = await openPage());
+    // Wait for the worker to control the page, otherwise the reload below
+    // would race the very first install.
+    await p.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller) {
+        await new Promise((r) => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
+      }
+    });
+  }, 30_000);
+
+  afterAll(async () => {
+    await ctx.setOffline(false);
+    await ctx.close();
+  });
+
+  test('the app still loads with the network cut', async () => {
+    await ctx.setOffline(true);
+    await p.reload();
+    await p.waitForTimeout(600);
+
+    expect(await p.locator('[data-t=node]').count()).toBeGreaterThan(80);
+    expect(await p.textContent('[data-t=count]')).toBeTruthy();
+  });
+
+  test('edits still persist offline', async () => {
+    const first = p.locator('section').first().locator('> ul > [data-t=node]').nth(0)
+      .locator('> [data-t=row] [data-t=txt]');
+    await first.click();
+    await p.keyboard.press(LINE_END);
+    await p.keyboard.type(' OFFLINE');
+    await p.waitForTimeout(400);
+
+    await p.reload();
+    await p.waitForTimeout(600);
+    expect(await first.textContent()).toEndWith(' OFFLINE');
+  });
+});

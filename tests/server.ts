@@ -23,7 +23,12 @@ export function startServer() {
 
       for (const candidate of [rel, `${rel}.html`, join(rel, 'index.html')]) {
         const path = join(OUT, candidate);
-        if (existsSync(path) && !path.endsWith('/')) return new Response(file(path));
+        if (!existsSync(path) || path.endsWith('/')) continue;
+        // Bun has no mapping for .webmanifest; Cloudflare serves it as JSON.
+        const headers = path.endsWith('.webmanifest')
+          ? { 'content-type': 'application/manifest+json' }
+          : undefined;
+        return new Response(file(path), headers ? { headers } : undefined);
       }
       return new Response(file(join(OUT, '404.html')), { status: 404 });
     },
