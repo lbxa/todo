@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "sydney-to-new-york",
+  "name": "todo",
   "compatibility_date": "2026-08-18",
   // Static assets only: the app has no server-side code, so there is no Worker
   // script to run. Cloudflare serves ./out straight from the edge cache.
